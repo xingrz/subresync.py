@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+
+import re
+from argparse import ArgumentParser
+from datetime import timedelta
+import pyass
+
+def parse_timestamp(timestamp_str):
+    timestamp_parts = re.split(r'[:,.]', timestamp_str)
+    hours, minutes, seconds, milliseconds = map(int, timestamp_parts)
+    return timedelta(
+        hours=hours,
+        minutes=minutes,
+        seconds=seconds,
+        milliseconds=milliseconds
+    )
+
+def shift_ass(input, output, shift):
+    with open(input, 'r') as f:
+        script = pyass.load(f)
+
+    script.events = [event for event in script.events if event.text.strip() != '']
+
+    for event in script.events:
+        event.start += shift
+        event.end += shift
+
+    if output is None:
+        print(script)
+    else:
+        with open(output, 'w+') as f:
+            pyass.dump(script, f)
+
+if __name__ == '__main__':
+    parser = ArgumentParser(description='SubResync')
+    parser.add_argument('input', type=str,
+                        help='input file (.ass)')
+    parser.add_argument('-o', '--output', type=str,
+                        help='output file (.ass)')
+    parser.add_argument('-f', '--from-time', type=str,
+                        help="base time from the input file (H:mm:ss.SSS)")
+    parser.add_argument('-t', '--to-time', type=str,
+                        help="target time after shifted (H:mm:ss.SSS)")
+    parser.add_argument('-s', '--shift', type=int,
+                        help="amount of shift in milliseconds")
+    args = parser.parse_args()
+
+    if args.from_time and args.to_time:
+        from_time = parse_timestamp(args.from_time)
+        to_time = parse_timestamp(args.to_time)
+        shift = to_time - from_time
+    elif args.shift:
+        shift = timedelta(milliseconds=args.shift)
+    else:
+        shift = timedelta(milliseconds=0)
+
+    shift_ass(args.input, args.output, shift)
